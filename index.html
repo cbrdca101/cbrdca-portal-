@@ -1,1 +1,210 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CBRDCA Sec. School - Portal Hub</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f2027">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+  body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; }
+  .hero { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); color: white; padding: 30px 20px; border-radius: 0 0 20px 20px; margin-bottom: 20px; text-align: center; }
+  .session-bar { background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); padding: 12px 20px; margin-bottom: 20px; border-left: 5px solid #1d6f42; }
+  
+  .portal-card { border: none; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.06); transition: all 0.25s ease-in-out; margin-bottom: 20px; cursor: pointer; text-align: center; color: #fff; padding: 25px 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 200px; position: relative; overflow: hidden; }
+  .portal-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.12); filter: brightness(1.03); }
+  .portal-card i { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.9; }
+  .portal-card h5 { font-weight: 700; margin-bottom: 8px; font-size: 1.1rem; }
+  .portal-card p { font-size: 0.82rem; opacity: 0.85; margin-bottom: 0; line-height: 1.4; }
+  
+  /* FULLSCREEN VIEWER MODAL */
+  .portal-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; flex-direction: column; }
+  .portal-modal-header { background: #0f2027; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+  .portal-modal-header h4 { font-size: 1.1rem; margin: 0; font-weight: 600; }
+  .close-btn { background: #dc3545; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+  .portal-modal-body { flex: 1; width: 100%; background: #ffffff; position: relative; }
+  .portal-modal-body iframe { width: 100%; height: 100%; border: none; }
+  .spinner-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 1; }
+
+  .portal-toast {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #ffc107;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    animation: fadeInOut 2.5s ease forwards;
+  }
+  @keyframes fadeInOut {
+    0% { opacity: 0; transform: translate(-50%, 10px); }
+    15% { opacity: 1; transform: translate(-50%, 0); }
+    85% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, 10px); display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h2 class="fw-bold mb-1"><i class="fa-solid fa-school me-2"></i>CBRDCA Sec. School Portal Hub</h2>
+  <p class="mb-0 text-white-50 small">Nandra Kallan, Jodhpur</p>
+</div>
+
+<div class="container" style="max-width: 900px;">
+  <!-- SESSION SELECTOR -->
+  <div class="session-bar">
+    <div class="row align-items-center">
+      <div class="col-md-4 text-secondary fw-bold small mb-2 mb-md-0">
+        <i class="fa-solid fa-calendar-days me-1 text-success"></i> Select Academic Session:
+      </div>
+      <div class="col-md-8">
+        <select id="masterSessionSelect" class="form-select form-select-sm fw-bold border-success">
+          <!-- Dynamically generated -->
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- PORTALS CONTAINER -->
+  <div class="row" id="portalsContainer"></div>
+</div>
+
+<!-- EMBEDDED MODAL VIEWER -->
+<div id="portalModal" class="portal-modal">
+  <div class="portal-modal-header">
+    <h4 id="modalTitle"><i class="fa-solid fa-circle-notch fa-spin me-2"></i>Loading Portal...</h4>
+    <button class="close-btn" onclick="closePortalModal()"><i class="fa-solid fa-xmark me-1"></i> Close</button>
+  </div>
+  <div class="portal-modal-body">
+    <div id="loadingSpinner" class="spinner-container">
+      <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;"></div>
+      <p class="text-muted mt-2 small fw-bold">Opening Secure Portal...</p>
+    </div>
+    <iframe id="portalIframe" src="" onload="document.getElementById('loadingSpinner').style.display='none';"></iframe>
+  </div>
+</div>
+
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const now = new Date();
+    let currentYear = now.getFullYear();
+    let currentMonth = now.getMonth() + 1;
+    if (currentMonth < 4) currentYear -= 1;
+    const selectEl = document.getElementById('masterSessionSelect');
+    selectEl.innerHTML = '';
+    const currStart = currentYear;
+    const currEndStr = String(currentYear + 1).slice(-2);
+    const prevStart = currentYear - 1;
+    const prevEndStr = String(currentYear).slice(-2);
+    
+    const optCurrent = document.createElement('option');
+    optCurrent.value = 'current';
+    optCurrent.textContent = `Session ${currStart}-${currEndStr} (Current)`;
+    optCurrent.selected = true;
+    
+    const optPrevious = document.createElement('option');
+    optPrevious.value = 'previous';
+    optPrevious.textContent = `Session ${prevStart}-${prevEndStr} (Previous)`;
+    
+    selectEl.appendChild(optCurrent);
+    selectEl.appendChild(optPrevious);
+    renderPortals();
+  });
+
+  const portalsConfig = [
+    {
+      id: 'homework',
+      title: 'Digital Homework Diary',
+      description: 'Manage and view daily class homework assignments.',
+      icon: 'fa-solid fa-book-open',
+      gradient: 'linear-gradient(135deg, #3a6073, #16222a)',
+      links: {
+        current: "https://script.google.com/macros/s/AKfycbwfealVN-PJGgy1L7jUmRi2g15O4bto_i0KnmYBiKTKRa1GxRN3gZn_yOwi01uTBlKzbg/exec",
+        previous: "PASTE_HOMEWORK_PREVIOUS_URL_HERE"
+      }
+    },
+    {
+      id: 'progress',
+      title: 'Weekly Progress Report',
+      description: 'Test schedules, evaluations, and marksheets.',
+      icon: 'fa-solid fa-chart-line',
+      gradient: 'linear-gradient(135deg, #11998e, #38ef7d)',
+      links: {
+        current: "https://script.google.com/macros/s/AKfycbyo-YzPSAKS4wIz0Tc_g_IRK6u7dqc-qJPF-bY-sMcqCV1j-awSgSMbLQxVz-Efa8-u/exec",
+        previous: "PASTE_PROGRESS_PREVIOUS_URL_HERE"
+      }
+    },
+    {
+      id: 'attendance',
+      title: 'Daily Attendance Report',
+      description: 'Track student presence, absences, and registers.',
+      icon: 'fa-solid fa-clipboard-user',
+      gradient: 'linear-gradient(135deg, #eb3349, #f45c43)',
+      links: {
+        current: "PASTE_ATTENDANCE_CURRENT_URL_HERE",
+        previous: "PASTE_ATTENDANCE_PREVIOUS_URL_HERE"
+      }
+    }
+  ];
+
+  function renderPortals() {
+    const container = document.getElementById('portalsContainer');
+    container.innerHTML = '';
+    portalsConfig.forEach(portal => {
+      const col = document.createElement('div');
+      col.className = 'col-md-4';
+      col.innerHTML = `
+        <div class="portal-card" id="card-${portal.id}" style="background: ${portal.gradient};" onclick="openPortal('${portal.id}')">
+          <i class="${portal.icon}"></i>
+          <h5>${portal.title}</h5>
+          <p>${portal.description}</p>
+        </div>
+      `;
+      container.appendChild(col);
+    });
+  }
+
+  function openPortal(portalId) {
+    const selectedSession = document.getElementById('masterSessionSelect').value;
+    const portal = portalsConfig.find(p => p.id === portalId);
+    const targetUrl = portal.links[selectedSession];
+    const card = document.getElementById('card-' + portalId);
+
+    if (!targetUrl || targetUrl.includes("PASTE_")) {
+      const oldToast = card.querySelector('.portal-toast');
+      if (oldToast) oldToast.remove();
+      const toast = document.createElement('div');
+      toast.className = 'portal-toast';
+      toast.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i> Not configured yet';
+      card.appendChild(toast);
+      setTimeout(() => { toast.remove(); }, 2500);
+      return;
+    }
+
+    // Open embedded full-screen viewer safely
+    document.getElementById('modalTitle').textContent = portal.title;
+    document.getElementById('loadingSpinner').style.display = 'block';
+    document.getElementById('portalIframe').src = targetUrl;
+    document.getElementById('portalModal').style.display = 'flex';
+  }
+
+  function closePortalModal() {
+    document.getElementById('portalModal').style.display = 'none';
+    document.getElementById('portalIframe').src = '';
+  }
+</script>
+
+</body>
+</html>
+
+
+
